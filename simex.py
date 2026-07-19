@@ -8,8 +8,8 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from sklearn.svm import SVR
-from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
+from scipy import stats
 import time
 from datetime import datetime, timedelta
 import os
@@ -30,12 +30,12 @@ if device.type == 'cuda':
 # RBM
 class RBMGenerador(nn.Module):
     '''
-    Red neuronal probabilística la cual aprende la distribución de probabilidad
-    de sus entradas, por lo que se puede generar datos nuevos con la misma distribución
+    Red neuronal probabilistica la cual aprende la distribucion de probabilidad
+    de sus entradas, por lo que se puede generar datos nuevos con la misma distribucion
     en caso de tenerlos.
     En la capa visible (v) entran los datos y en la oculta (h) se aprenden los patrones. 
-    La probabilidad conjunta de ambas capas está dada por la distribución de Boltzmann
-    la cual describe la probabilidad P(v,h) que una partícula ocupe un estado de energía
+    La probabilidad conjunta de ambas capas esta dada por la distribucion de Boltzmann
+    la cual describe la probabilidad P(v,h) que una particula ocupe un estado de energia
     E(v,h) a una temperatura T. 
     - E(v,h) = -v^T*w*h - b_v*v - b_h*h
     - P(v,h) = exp(-E(v,h)) / Z
@@ -45,19 +45,19 @@ class RBMGenerador(nn.Module):
         - h, el vectore de estado de las neuronas ocultas.
         - b_h, el vectore de sesgos de las neuronas ocultas.
         - w, la matriz de pesos por las conexiones entre v y h.  
-        - Z, la función de partición la cual es la suma de todas las
+        - Z, la funcion de particion la cual es la suma de todas las
              configuraciones posibles entre v y h.
     Para el aprendizaje, un vector v activa una neurona oculta donde se realiza una
-    reconstrucción de la entrada incial. La diferencia entre ambas permite evaluar un error
+    reconstruccion de la entrada incial. La diferencia entre ambas permite evaluar un error
     para ajustar los pesos por lo que se utiliza:
     - grad = <v·h>_data - <v·h>_model
     '''
     
     def __init__(self, n_visible, n_hidden, temperatura=1.0):
         '''
-        n_visible: Número de neuronas en la capa visible.
-        n_hidden: Número de neuronas en la capa oculta.
-        temperatura: Controla la exploración, si es mayor que 1 es maás exploratoria.
+        n_visible: Numero de neuronas en la capa visible.
+        n_hidden: Numero de neuronas en la capa oculta.
+        temperatura: Controla la exploracion, si es mayor que 1 es maas exploratoria.
         '''
         super(RBMGenerador, self).__init__()
         self.n_visible = n_visible
@@ -72,7 +72,7 @@ class RBMGenerador(nn.Module):
     
     def forward(self, v):
         '''
-        Probabilidad de activación de las neuronas ocultas.
+        Probabilidad de activacion de las neuronas ocultas.
         '''
         h_prob = torch.sigmoid((torch.mm(v, self.W) + self.h_bias) / self.temperatura)
         return h_prob
@@ -87,7 +87,7 @@ class RBMGenerador(nn.Module):
     
     def sample_visible(self, h):
         '''
-        Reconstrucción de las neuronal visibles a partir de las ocultas. 
+        Reconstruccion de las neuronal visibles a partir de las ocultas. 
         '''
         v_prob = torch.sigmoid((torch.mm(h, self.W.t()) + self.v_bias) / self.temperatura)
         v_sample = torch.bernoulli(v_prob)
@@ -103,7 +103,7 @@ class RBMGenerador(nn.Module):
     
     def contrastive_divergence(self, v, k=1, lr=0.01):
         '''
-        Aprendizaje y actualización de pesos
+        Aprendizaje y actualizacion de pesos
         '''
         h_prob_pos, h_sample_pos = self.sample_hidden(v)
         positive_grad = torch.mm(v.t(), h_prob_pos)
@@ -153,7 +153,7 @@ class RBMGenerador(nn.Module):
                 start_idx = i * batch_size
                 end_idx = min((i + 1) * batch_size, n_samples)
                 batch = datos_shuffled[start_idx:end_idx]
-                loss = self.contrastive_divergence(batch, k=k, lr=lr) # Aprendizaje
+                loss = self.contrastive_divergence(batch, k=k, lr=lr)
                 epoch_loss += loss
             
             epoch_loss /= n_batches
@@ -172,7 +172,7 @@ class RBMGenerador(nn.Module):
     
     def generar_muestras(self, n_samples, n_steps=100, return_probs=True, semilla=None):
         '''
-        Generación de muevos datos a partir del entrenamiento de la RBM.
+        Generacion de nuevos datos a partir del entrenamiento de la RBM.
         '''
         if semilla is not None:
             torch.manual_seed(semilla)
@@ -195,7 +195,7 @@ class RBMGenerador(nn.Module):
     
     def extraer_caracteristicas(self, v):
         '''
-        Extrae características.
+        Extrae caracteristicas.
         '''
         with torch.no_grad():
             h_prob = self.forward(v)
@@ -253,12 +253,12 @@ class EntrenamientoVisualizador:
     '''
     Visualizador en tiempo real del entrenamineto de la red neuronal, por medio de una barra
     de progreso se puede ver el tiempo estimado de entrenamiento.
-    Las gráficas de evolución de pérdida y precisión se actualizan en tiempo real.
+    Las graficas de evolucion de perdida y precision se actualizan en tiempo real.
     '''
     def __init__(self, total_epochs, nombre_modelo="Modelo", guardar_graficas=True, directorio="./graficas/"):
         '''
-        Inicialización de los parámetros de entrenamineto.
-        total_epochs (int): Número total de épocas de entrenamiento.
+        Inicializacion de los parametros de entrenamineto.
+        total_epochs (int): Numero total de epocas de entrenamiento.
         nombre_modelo (str): Nombre del modelo.
         '''
         self.total_epochs = total_epochs
@@ -280,11 +280,11 @@ class EntrenamientoVisualizador:
         if self.guardar_graficas:
             if not os.path.exists(self.directorio):
                 os.makedirs(self.directorio)
-                print(f"  Directorio creado para las gráficas: {self.directorio}")
+                print(f"  Directorio creado para las graficas: {self.directorio}")
     
     def _obtener_nombre_archivo(self, extension="png"):
         """
-        Nombre archivo de las gráficas
+        Nombre archivo de las graficas
         """
         from datetime import datetime
         
@@ -302,7 +302,7 @@ class EntrenamientoVisualizador:
     
     def _guardar_grafica(self):
         """
-        Guarda la gráfica.
+        Guarda la grafica.
         """
         if self.fig is None or not self.guardar_graficas:
             return
@@ -326,30 +326,30 @@ class EntrenamientoVisualizador:
             
     def iniciar(self):
         '''
-        Inicia visualización
+        Inicia visualizacion
         '''
         self.inicio = time.time()
         print(f"Entrenamiento: {self.nombre_modelo}")
         print(f"Total de epocas: {self.total_epochs}")
         print(f"Dispositivo: {device}")
         
-        plt.ion() # Actualización en tiempo real de la gráfica
+        plt.ion()
         self.fig, self.axes = plt.subplots(1, 2, figsize=(14, 5))
         self.fig.suptitle(f'{self.nombre_modelo} - Evolucion del Entrenamiento', fontsize=14)
     
     def actualizar(self, epoch, train_loss, test_loss, train_r2=None, test_r2=None, mejorado=False):
         '''
-        Actualiza el progreso de entrenamiento con las épocas.
-        epoch: Número de época actuales.
-        train_loss: Pérdida en el conjunto de entrenamiento.
-        test_loss: Pérdida en el conjunto de validación.
-        train_r2: R² en entrenamiento.
-        test_r2: R² en validación.
-        mejorado: True si el test_loss mejoró respecto a la época anter
+        Actualiza el progreso de entrenamiento con las epocas.
+        epoch: Numero de epoca actuales.
+        train_loss: Perdida en el conjunto de entrenamiento.
+        test_loss: Perdida en el conjunto de validacion.
+        train_r2: R2 en entrenamiento.
+        test_r2: R2 en validacion.
+        mejorado: True si el test_loss mejoro respecto a la epoca anter
         '''
         elapsed = time.time() - self.inicio
         
-        self.historial['epoch'].append(epoch + 1) #Para mostrar desde 1
+        self.historial['epoch'].append(epoch + 1)
         self.historial['train_loss'].append(train_loss)
         self.historial['test_loss'].append(test_loss)
         self.historial['time'].append(elapsed)
@@ -400,7 +400,7 @@ class EntrenamientoVisualizador:
     
     def _actualizar_graficas(self):
         '''
-        Actualización de las gráficas con lo datos guardados.
+        Actualizacion de las graficas con lo datos guardados.
         '''
         if self.fig is None or self.axes is None:
             return
@@ -408,7 +408,7 @@ class EntrenamientoVisualizador:
         for ax in self.axes:
             ax.clear()
         
-        # Evolución pérdida
+        # Evolucion perdida
         ax = self.axes[0]
         if len(self.historial['train_loss']) > 0:
             ax.plot(self.historial['epoch'], self.historial['train_loss'], label='Train Loss', color="#8d36c7", linestyle='--', linewidth=2)
@@ -420,14 +420,14 @@ class EntrenamientoVisualizador:
             ax.grid(True, alpha=0.3)
             ax.set_yscale('log')
         
-        # Evolución precisión
+        # Evolucion precision
         ax = self.axes[1]
         if len(self.historial.get('train_r2', [])) > 0:
             ax.plot(self.historial['epoch'], self.historial['train_r2'], label='Train R2', color="#3681c7", linestyle='--', linewidth=2)
             ax.plot(self.historial['epoch'], self.historial['test_r2'], label='Test R2', color="#e9944f", linewidth=2)
             ax.set_xlabel('Epoca')
             ax.set_ylabel('R2')
-            ax.set_title('Evolucion de la Precisión')
+            ax.set_title('Evolucion de la Precision')
             ax.legend()
             ax.grid(True, alpha=0.3)
             ax.set_ylim([0, 1.05])
@@ -438,7 +438,7 @@ class EntrenamientoVisualizador:
     
     def finalizar(self):
         '''
-        Finalización del entrenamiento.
+        Finalizacion del entrenamiento.
         '''
         elapsed = time.time() - self.inicio
         if elapsed < 60:
@@ -465,18 +465,18 @@ class EntrenamientoVisualizador:
 # Red Neuronal
 class GeocronologiaNet(nn.Module):
     '''
-    Red neuronal para hacer estimación de edades geológicas.
-    Aprende a predecir la edad en base a las concentraciones de isótopos padres e hijos,
-    relacionándolos y tomando las características del sistema.
-    Las capas completamente conectadas se dan por BatchNormalization, se toma activación por LeakyReLU
-    para gradientes negativos pequeños, con menor dropout en capas más rofundas.
+    Red neuronal para hacer estimacion de edades geologicas.
+    Aprende a predecir la edad en base a las concentraciones de isotopos padres e hijos,
+    relacionandolos y tomando las caracteristicas del sistema.
+    Las capas completamente conectadas se dan por BatchNormalization, se toma activacion por LeakyReLU
+    para gradientes negativos pequenos, con menor dropout en capas mas rofundas.
     '''
     def __init__(self, input_dim=2, hidden_dims=[128, 64, 32], output_dim=1, dropout_rate=0.3):
         '''
-        Inicialización de la red neuronal.
-        input_dim: Número de características de entrada.
-        hidden_dims: Lista con el tamaño de cada capa oculta.
-        output_dim: Número de neuronas de salida.
+        Inicializacion de la red neuronal.
+        input_dim: Numero de caracteristicas de entrada.
+        hidden_dims: Lista con el tamano de cada capa oculta.
+        output_dim: Numero de neuronas de salida.
         dropout_rate: Tasa de dropout inicial. 
         '''
         super(GeocronologiaNet, self).__init__()
@@ -496,18 +496,18 @@ class GeocronologiaNet(nn.Module):
     
     def _initialize_weights(self):
         '''
-        Inicialización de los pesos por medio de Kaiming debido a quepermite mantener 
+        Inicializacion de los pesos por medio de Kaiming debido a quepermite mantener 
         gradientes en rangos adecuados, lo que mejora la convergencia en redes profundas.
         '''
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='leaky_relu') # Considerar solo entrada
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='leaky_relu')
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
     
     def forward(self, x):
         '''
-        Propagación hacia adelante.
+        Propagacion hacia adelante.
         x: Datos de entrada
         Regresa las predicciones por torch.Tensor
         '''
@@ -516,17 +516,17 @@ class GeocronologiaNet(nn.Module):
 # Entrenamiento
 def entrenar_red(modelo, X_train, y_train, X_test, y_test, epochs=500, batch_size=128, lr=0.0005, patience=60, device=device, nombre_modelo="Red Neuronal", scaler_y=None):
     '''
-    Entrenamiento de la red neuronal con visualización actualizada.
+    Entrenamiento de la red neuronal con visualizacion actualizada.
     modelo: Red neuronal a entrenar.
     X_train: Datos de entrenamiento.
     y_train: Etiquetas de entrenamiento.
-    X_test: Datos de validación .
-    y_test: Etiquetas de validación.
-    epochs: Número máximo de épocas.
-    batch_size: Tamaño del lote.
+    X_test: Datos de validacion .
+    y_test: Etiquetas de validacion.
+    epochs: Numero maximo de epocas.
+    batch_size: Tamano del lote.
     lr: Tasa de aprendizaje inicial.
-    patience: Épocas sin mejora antes de early stopping.
-    nombre_modelo: Nombre para visualización.
+    patience: Epocas sin mejora antes de early stopping.
+    nombre_modelo: Nombre para visualizacion.
     scaler_y: Escalador para desescalar predicciones.
     '''
     X_train_t = torch.tensor(X_train, dtype=torch.float32).to(device)
@@ -535,7 +535,7 @@ def entrenar_red(modelo, X_train, y_train, X_test, y_test, epochs=500, batch_siz
     y_test_t = torch.tensor(y_test, dtype=torch.float32).to(device)
     
     dataset = TensorDataset(X_train_t, y_train_t)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True) # Mezcla los datos de cada época para generalizar
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
     criterion = nn.SmoothL1Loss()
     optimizer = optim.AdamW(modelo.parameters(), lr=lr, weight_decay=1e-5)
@@ -617,7 +617,7 @@ def limpiar_ruta(ruta):
 def cargar_datos_excel(ruta_excel):
     """
     Carga datos del Excel.
-    Tomando como referencia el archivo adjunto con datos de zircón.
+    Tomando como referencia el archivo adjunto con datos de zircon.
     """
     try:
         ruta_excel = limpiar_ruta(ruta_excel)
@@ -645,7 +645,7 @@ def cargar_datos_excel(ruta_excel):
 def procesar_datos_reales(df):
     """
     Procesa datos reales para entrenamiento. Identifica la columna de edad, selecciona las
-    características más erlevantes y elimina filas con valores nulos.
+    caracteristicas mas erlevantes y elimina filas con valores nulos.
     """
     if df is None:
         return None
@@ -687,7 +687,7 @@ def procesar_datos_reales(df):
             Q1 = df_procesado[col].quantile(0.01)
             Q3 = df_procesado[col].quantile(0.99)
             IQR = Q3 - Q1
-            if IQR > 0: # Filtración de outliers en caso de variaciones
+            if IQR > 0:
                 df_procesado = df_procesado[
                     (df_procesado[col] >= Q1 - 1.5*IQR) & 
                     (df_procesado[col] <= Q3 + 1.5*IQR)
@@ -700,8 +700,8 @@ def generar_datos_sinteticos(n_muestras=3000, semilla=42):
     """
     Genera datos sinteticos cuando no hay datos reales. Se simula el decaimiento de los sistemas
     en base a su vida media. Los datos generados tienen decaimiento exponencial con ruido gaussiano
-    y de Poisson, edades con distribución multimodal por eventos geológicos y concentraciones iniciales.
-    n_muestras: Número total de muestras a generar.
+    y de Poisson, edades con distribucion multimodal por eventos geologicos y concentraciones iniciales.
+    n_muestras: Numero total de muestras a generar.
     semilla: Semilla para reproducir.
     """
     np.random.seed(semilla)
@@ -723,14 +723,14 @@ def generar_datos_sinteticos(n_muestras=3000, semilla=42):
     for i, sistema in enumerate(sistemas):
         n_actual = n_por_sistema + (n_restante if i == len(sistemas)-1 else 0)
         
-        n1 = n_actual // 3 # Evento temprano
-        n2 = n_actual // 3 # Evento medio
-        n3 = n_actual - n1 - n2 # Evento tardío
+        n1 = n_actual // 3
+        n2 = n_actual // 3
+        n3 = n_actual - n1 - n2
         
-        t = np.concatenate([ #Edades en millones de años
-            np.random.normal(500, 200, n1), # Edad jóven 
-            np.random.normal(2500, 500, n2), # Edad media
-            np.random.normal(4000, 300, n3) # Edad antigua
+        t = np.concatenate([
+            np.random.normal(500, 200, n1),
+            np.random.normal(2500, 500, n2),
+            np.random.normal(4000, 300, n3)
         ])
         t = np.clip(t, 0, 5000)
         np.random.shuffle(t)
@@ -771,15 +771,15 @@ def generar_datos_sinteticos(n_muestras=3000, semilla=42):
     print(f"  Total: {len(df_total)} muestras sinteticas")
     return df_total
 
-# Funciones de evaluación
+# Funciones de evaluacion
 def evaluar_con_cross_validation(modelo, X, y, cv=5, nombre="Modelo", scaler_y=None):
     """
-    Evalua un modelo usando Cross Validation K-Fold. Dada la división de los datos para validación y
-    entrenamiento, es posible tene runa estimación del rendimiento del modelo.
-    X: Características de entrada.
+    Evalua un modelo usando Cross Validation K-Fold. Dada la division de los datos para validacion y
+    entrenamiento, es posible tene runa estimacion del rendimiento del modelo.
+    X: Caracteristicas de entrada.
     y: Etiquetas objetivo.
-    cv: Número de parámetros para la validación cruzada.
-    nombre: Nombre del modelo para identificación en prints.
+    cv: Numero de parametros para la validacion cruzada.
+    nombre: Nombre del modelo para identificacion en prints.
     scaler_y: Escalador para desescalar predicciones.
     """
     print(f"\n  {nombre} - Cross Validation (K={cv}):")
@@ -845,10 +845,10 @@ def evaluar_con_cross_validation(modelo, X, y, cv=5, nombre="Modelo", scaler_y=N
 
 def evaluar_modelo_con_cv(modelo, X_train, y_train, X_test, y_test, scaler_y=None, nombre="Modelo", cv=5):
     """
-    Evalua un modelo con entrenamiento en train, evaluación en test y Cross Validation. Se entrena entrena
-    el modelo con el conjunto de entrenamiento, después se evalúa con el conjunto de teste, se realiza
-    cv en este y se retornan las métricas.
-    cv: Número de folds para validación cruzada.
+    Evalua un modelo con entrenamiento en train, evaluacion en test y Cross Validation. Se entrena entrena
+    el modelo con el conjunto de entrenamiento, despues se evalua con el conjunto de teste, se realiza
+    cv en este y se retornan las metricas.
+    cv: Numero de folds para validacion cruzada.
     """
     modelo.fit(X_train, y_train)
     y_pred = modelo.predict(X_test)
@@ -889,7 +889,6 @@ def graficar_comparativa(resultados, titulo="Comparacion de Modelos", mostrar_cv
     Grafica comparativa de modelos. Si mostrar_cv=True, muestra Test + CV.
     Si mostrar_cv=False, muestra solo Test.
     """
-    # Filtrar modelos con datos validos
     modelos_validos = []
     for m in resultados.keys():
         if isinstance(resultados[m], dict) and 'test' in resultados[m]:
@@ -900,7 +899,6 @@ def graficar_comparativa(resultados, titulo="Comparacion de Modelos", mostrar_cv
         print("  No hay modelos validos para graficar.")
         return
     
-    # Si mostrar_cv=True, filtrar solo modelos con CV valido
     if mostrar_cv:
         modelos_con_cv = []
         for m in modelos_validos:
@@ -918,12 +916,10 @@ def graficar_comparativa(resultados, titulo="Comparacion de Modelos", mostrar_cv
     else:
         modelos = modelos_validos
     
-    # Preparar datos
     r2_test = [resultados[m]['test']['r2'] for m in modelos]
     rmse_test = [resultados[m]['test']['rmse'] for m in modelos]
     mape_test = [resultados[m]['test']['mape'] for m in modelos]
     
-    # Datos de CV (si estan disponibles)
     r2_cv = []
     r2_cv_std = []
     rmse_cv = []
@@ -954,11 +950,9 @@ def graficar_comparativa(resultados, titulo="Comparacion de Modelos", mostrar_cv
             rmse_cv_std.append(0)
             mape_cv.append(0)
     
-    # Si no hay CV real, mostrar solo Test
     if not tiene_cv and mostrar_cv:
         mostrar_cv = False
     
-    # Determinar numero de graficas
     if mostrar_cv and tiene_cv:
         n_plots = 3
         titulo_plot = titulo
@@ -970,13 +964,12 @@ def graficar_comparativa(resultados, titulo="Comparacion de Modelos", mostrar_cv
     if n_plots == 1:
         axes = [axes]
     
-    fig.suptitle(titulo_plot, fontsize=14, fontweight='bold')
+    fig.suptitle(titulo_plot, fontsize=14)
     
     x = np.arange(len(modelos))
     width = 0.35
     idx = 0
     
-    # Grafica 1: R²
     ax = axes[idx]
     if mostrar_cv and tiene_cv:
         ax.bar(x - width/2, r2_test, width, label='Test', color='steelblue')
@@ -986,8 +979,8 @@ def graficar_comparativa(resultados, titulo="Comparacion de Modelos", mostrar_cv
         ax.bar(x, r2_test, width, color='steelblue', label='Test')
     
     ax.set_xlabel('Modelo')
-    ax.set_ylabel('R²')
-    ax.set_title('Comparacion de R²')
+    ax.set_ylabel('R2')
+    ax.set_title('Comparacion de R2')
     ax.legend()
     ax.grid(True, alpha=0.3, axis='y')
     ax.set_xticks(x)
@@ -996,7 +989,6 @@ def graficar_comparativa(resultados, titulo="Comparacion de Modelos", mostrar_cv
     ax.axhline(y=0.70, color="#af5010", linestyle='--', alpha=0.5, label='Aceptable (0.70)')
     idx += 1
     
-    # Grafica 2: RMSE
     ax = axes[idx]
     if mostrar_cv and tiene_cv:
         ax.bar(x - width/2, rmse_test, width, label='Test', color='steelblue')
@@ -1014,7 +1006,6 @@ def graficar_comparativa(resultados, titulo="Comparacion de Modelos", mostrar_cv
     ax.set_xticklabels(modelos, rotation=45, ha='right')
     idx += 1
     
-    # Grafica 3: MAPE (solo si hay CV y mostrar_cv=True)
     if mostrar_cv and tiene_cv and n_plots == 3:
         ax = axes[idx]
         ax.bar(x - width/2, mape_test, width, label='Test', color='steelblue')
@@ -1032,10 +1023,10 @@ def graficar_comparativa(resultados, titulo="Comparacion de Modelos", mostrar_cv
 
 def graficar_analisis_completo(y_true, y_pred, titulo="Analisis de Prediccion"):
     """
-    Análisas de predicciones de dispersión, distribución, error relativo y erro por rango de edad.
+    Analisas de predicciones de dispersion, distribucion, error relativo y erro por rango de edad.
     y_true: Valores reales.
     y_pred: Valores predichos.
-    titulo: Título de la figura.
+    titulo: Titulo de la figura.
     """
     if len(y_true.shape) == 1:
         y_true = y_true.reshape(-1, 1)
@@ -1047,10 +1038,10 @@ def graficar_analisis_completo(y_true, y_pred, titulo="Analisis de Prediccion"):
     errores_rel = np.clip(errores_rel, 0, 100)
     
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle(titulo, fontsize=14, fontweight='bold')
+    fig.suptitle(titulo, fontsize=14)
     
     ax = axes[0, 0]
-    ax.scatter(y_true, y_pred, alpha=0.4, s=8, c="#3681c7")
+    ax.scatter(y_true, y_pred, alpha=0.4, s=8, color="#3681c7")
     ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], 
             'r--', lw=2, label='Perfecta')
     ax.set_xlabel("Edad Real (Ma)")
@@ -1121,12 +1112,76 @@ def graficar_analisis_completo(y_true, y_pred, titulo="Analisis de Prediccion"):
     plt.tight_layout()
     plt.show()
 
-# Menú
-def main():
-    print("Geocronología")
-    print("Analisis de datos isotopicos con Machine Learning")
+# Funciones adicionales para analisis
+def graficar_decaimiento(df, sistema="U235", titulo="Curva de Decaimiento"):
+    """
+    Grafica la curva de decaimiento para un sistema especifico.
+    """
+    if 'sistema' not in df.columns:
+        print("  No se puede graficar decaimiento: columna 'sistema' no encontrada")
+        return
+    
+    df_sistema = df[df['sistema'] == sistema]
+    
+    if len(df_sistema) == 0:
+        print(f"  No hay datos para el sistema {sistema}")
+        return
+    
+    plt.figure(figsize=(10, 6))
+    plt.scatter(df_sistema['t'], df_sistema['N_padre'], alpha=0.5, s=10, label='Datos')
+    
+    t_teorico = np.linspace(0, df_sistema['t'].max(), 100)
+    lambda_real = df_sistema['lambda_real'].iloc[0]
+    N0_medio = df_sistema['N0'].mean()
+    N_teorico = N0_medio * np.exp(-lambda_real * t_teorico)
+    plt.plot(t_teorico, N_teorico, 'r-', linewidth=2, label='Curva teorica')
+    
+    plt.xlabel('Edad (Ma)')
+    plt.ylabel('N (isotopo padre)')
+    plt.title(f'{titulo} - {sistema}')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.show()
 
-    print("Seleccione una pción:")
+def graficar_residuos(y_true, y_pred, titulo="Analisis de Residuos"):
+    """
+    Grafica residuos para detectar heterocedasticidad.
+    """
+    residuos = y_true.flatten() - y_pred.flatten()
+    
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle(titulo, fontsize=14)
+    
+    axes[0].scatter(y_pred, residuos, alpha=0.5, s=10)
+    axes[0].axhline(y=0, color='red', linestyle='--')
+    axes[0].set_xlabel('Valor Predicho')
+    axes[0].set_ylabel('Residuos')
+    axes[0].set_title('Residuos vs Predicciones')
+    axes[0].grid(True, alpha=0.3)
+    
+    stats.probplot(residuos, dist="norm", plot=axes[1])
+    axes[1].set_title('Q-Q Plot de Residuos')
+    axes[1].grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.show()
+
+# Menu
+def main():
+    print("Geocronologia")
+    print("Analisis de datos isotopicos con Machine Learning")
+    
+    nombre_base = input("\nIngrese un nombre para la prueba: ").strip()
+    if not nombre_base:
+        nombre_base = "geocronologia"
+    
+    nombre_red = nombre_base
+    nombre_pth = f"{nombre_base}.pth"
+    
+    print(f"\n  Nombre de la red neuronal: {nombre_red}")
+    print(f"  Nombre del archivo .pth: {nombre_pth}")
+
+    print("\nSeleccione una pcion:")
     print("  1. Datos REALES + RBM")
     print("  2. Datos SINTETICOS (solo simulacion)")
     
@@ -1142,9 +1197,9 @@ def main():
     
     usar_rbm = (opcion == '1')
     
-    # Opción 1
+    # Opcion 1
     if usar_rbm:
-        print("Opción 1: Datos REALES + RBM")
+        print("\nOpcion 1: Datos REALES + RBM")
         
         print("\nIngrese la ruta del archivo Excel con los datos:")
         print("  (Ejemplo: C:\\Users\\usuario\\documento.xlsx)")
@@ -1158,7 +1213,7 @@ def main():
                 ruta_excel = archivos[0]
                 print(f"  Archivo encontrado: {ruta_excel}")
             else:
-                print("  No se encontro archivo Excel. Cambiando a Opción 2")
+                print("  No se encontro archivo Excel. Cambiando a Opcion 2")
                 usar_rbm = False
         
         if usar_rbm:
@@ -1198,14 +1253,14 @@ def main():
             print(f"  Muestras para RBM: {len(X_rbm_bin)}")
             
             # Configurar RBM
-            print("Configuración RBM")
+            print("\nConfiguracion RBM")
             print("  1. Cargar RBM guardada desde archivo.")
             print("  2. Entrenar RBM desde cero.")
             print("  3. Entrenar RBM con parametros predefinidos.")
             
             while True:
                 try:
-                    opcion_rbm = input("\nIngrese su opción: ").strip()
+                    opcion_rbm = input("\nIngrese su opcion: ").strip()
                     if opcion_rbm in ['1', '2', '3']:
                         break
                     else:
@@ -1217,7 +1272,7 @@ def main():
             rbm_entrenada = False
             losses_rbm = None
             
-            # Opción 1
+            # Opcion 1 - Cargar RBM
             if opcion_rbm == '1':
                 print("\n" + "="*70)
                 print("CARGANDO RBM GUARDADA")
@@ -1241,9 +1296,9 @@ def main():
                     except:
                         ruta_archivo = input("Ingrese la ruta del archivo .pth: ").strip()
                 else:
-                    ruta_archivo = input("Ingrese la ruta del archivo .pth: ").strip()
+                    ruta_archivo = input(f"Ingrese la ruta del archivo .pth (default: {nombre_pth}): ").strip()
                     if not ruta_archivo:
-                        ruta_archivo = "rbm_entrenada.pth"
+                        ruta_archivo = nombre_pth
                 
                 try:
                     rbm = RBMGenerador.cargar_modelo(ruta_archivo)
@@ -1251,7 +1306,7 @@ def main():
                     rbm_entrenada = True
                 except FileNotFoundError:
                     print(f"  Archivo no encontrado: {ruta_archivo}")
-                    print("  ¿Desea entrenar una RBM desde cero?")
+                    print("  Desea entrenar una RBM desde cero?")
                     respuesta = input("  (s/n): ").strip().lower()
                     if respuesta == 's':
                         opcion_rbm = '2'
@@ -1260,7 +1315,7 @@ def main():
                         return None
                 except Exception as e:
                     print(f"  Error al cargar la RBM: {e}")
-                    print("  ¿Desea entrenar una RBM desde cero?")
+                    print("  Desea entrenar una RBM desde cero?")
                     respuesta = input("  (s/n): ").strip().lower()
                     if respuesta == 's':
                         opcion_rbm = '2'
@@ -1268,9 +1323,9 @@ def main():
                         print("  No se pudo cargar la RBM.")
                         return None
             
-            # # Opción 2
+            # Opcion 2 - Entrenar desde cero
             if opcion_rbm == '2':
-                print("Entrenando RBM desde cero")
+                print("\nEntrenando RBM desde cero")
                 
                 print("\nConfiguracion de entrenamiento (presione Enter para usar valores por defecto):")
                 
@@ -1306,18 +1361,18 @@ def main():
                     nombre="RBM Geocronologia"
                 )
                 
-                guardar = input("\n¿Desea guardar la RBM entrenada? (s/n): ").strip().lower()
+                guardar = input("\nDesea guardar la RBM entrenada? (s/n): ").strip().lower()
                 if guardar == 's':
-                    ruta_guardar = input("  Ruta para guardar (default: rbm_entrenada.pth): ").strip()
+                    ruta_guardar = input(f"  Ruta para guardar (default: {nombre_pth}): ").strip()
                     if not ruta_guardar:
-                        ruta_guardar = "rbm_entrenada.pth"
+                        ruta_guardar = nombre_pth
                     rbm.guardar_modelo(ruta_guardar)
                 
                 rbm_entrenada = True
             
-            # # Opción 3
+            # Opcion 3 - Parametros predefinidos
             if opcion_rbm == '3':
-                print("Entrenando con parámetros definidos")
+                print("\nEntrenando con parametros definidos")
                 print("  Neuronas ocultas: {} (mitad de las visibles)".format(len(features_reales)//2))
                 print("  Epocas: 80")
                 print("  Batch size: 32")
@@ -1343,8 +1398,8 @@ def main():
                     nombre="RBM Geocronologia"
                 )
                 
-                rbm.guardar_modelo("rbm_entrenada.pth")
-                print("\n  RBM guardada automaticamente como 'rbm_entrenada.pth'")
+                rbm.guardar_modelo(nombre_pth)
+                print(f"  RBM guardada como: {nombre_pth}")
                 
                 rbm_entrenada = True
             
@@ -1414,7 +1469,7 @@ def main():
             
             print("\n  Entrenando Red Neuronal")
             modelo_nn = GeocronologiaNet(input_dim=X_train.shape[1], hidden_dims=[256, 128, 64, 32])
-            modelo_nn, historial = entrenar_red( modelo_nn, X_train, y_train.reshape(-1, 1),X_test, y_test.reshape(-1, 1), epochs=500, batch_size=128, lr=0.0005, patience=60, device=device, nombre_modelo="Red Neuronal + RBM", scaler_y=scaler_y )
+            modelo_nn, historial = entrenar_red( modelo_nn, X_train, y_train.reshape(-1, 1),X_test, y_test.reshape(-1, 1), epochs=500, batch_size=128, lr=0.0005, patience=60, device=device, nombre_modelo=nombre_red, scaler_y=scaler_y )
             
             with torch.no_grad():
                 y_pred_nn = modelo_nn(torch.tensor(X_test, dtype=torch.float32).to(device)).cpu().numpy()
@@ -1436,14 +1491,20 @@ def main():
             print("\n Generando graficas finales")
             
             graficar_comparativa(resultados, titulo="Comparacion de Modelos - Datos Reales + RBM", mostrar_cv=True)
-            graficar_comparativa(resultados, titulo="Cross Validation - Datos Reales + RBM", mostrar_cv=False)
             
             mejor_modelo = max(resultados, key=lambda x: resultados[x]['test']['r2'] if resultados[x]['test']['r2'] is not None else -999)
             print(f"\nMejor modelo: {mejor_modelo}")
             print(f"  R2 Test: {resultados[mejor_modelo]['test']['r2']:.4f}")
             print(f"  RMSE Test: {resultados[mejor_modelo]['test']['rmse']:.2f} Ma")
             
-            graficar_analisis_completo(resultados[mejor_modelo]['y_true'], resultados[mejor_modelo]['y_pred'], titulo=f"Analisis de Prediccion - {mejor_modelo}")
+            graficar_analisis_completo(resultados[mejor_modelo]['y_true'], resultados[mejor_modelo]['y_pred'], titulo=f"Analisis de Prediccion - Mejor Modelo \n{mejor_modelo}")
+
+            print("\nGraficas adicionales")
+            
+            if 'sistema' in df_gen.columns:
+                graficar_decaimiento(df_gen, sistema="U235", titulo="Curva de Decaimiento - Datos RBM")
+            
+            graficar_residuos(resultados[mejor_modelo]['y_true'], resultados[mejor_modelo]['y_pred'], titulo=f"Analisis de Residuos - Mejor modelo \n{mejor_modelo}")
             
             print(f"\nDatos reales: {len(df_real)} muestras")
             print(f"Datos generados por RBM: {len(df_gen)} muestras")
@@ -1464,8 +1525,8 @@ def main():
             
             return resultados
     
-   # Opción 2
-    print("Opción 2: Datos sintéticos")
+   # Opcion 2
+    print("\nOpcion 2: Datos sinteticos")
     
     print("\n Generando datos sinteticos")
     df_sint = generar_datos_sinteticos(n_muestras=3000, semilla=42)
@@ -1546,7 +1607,7 @@ def main():
         modelo_nn, X_train, y_train.reshape(-1, 1),
         X_test, y_test.reshape(-1, 1),
         epochs=500, batch_size=128, lr=0.0005, patience=60,
-        device=device, nombre_modelo="Red Neuronal (Sinteticos)", scaler_y=scaler_y
+        device=device, nombre_modelo=nombre_red, scaler_y=scaler_y
     )
     
     with torch.no_grad():
@@ -1570,7 +1631,6 @@ def main():
     print("\nGenerando graficas finales")
     
     graficar_comparativa(resultados, titulo="Comparacion de Modelos - Datos Sinteticos", mostrar_cv=True)
-    graficar_comparativa(resultados, titulo="Cross Validation - Datos Sinteticos", mostrar_cv=False)
     
     mejor_modelo = max(resultados, key=lambda x: resultados[x]['test']['r2'] if resultados[x]['test']['r2'] is not None else -999)
     print(f"\nMejor modelo: {mejor_modelo}")
@@ -1580,8 +1640,13 @@ def main():
     graficar_analisis_completo(
         resultados[mejor_modelo]['y_true'],
         resultados[mejor_modelo]['y_pred'],
-        titulo=f"Analisis de Prediccion - {mejor_modelo} (Sinteticos)"
+        titulo=f"Analisis de Prediccion - Mejor modelo \n{mejor_modelo} (Sinteticos)"
     )
+    
+    print("\nGraficas adicionales")
+    
+    graficar_decaimiento(df, sistema="U235", titulo="Curva de Decaimiento - Datos Sinteticos")
+    graficar_residuos(resultados[mejor_modelo]['y_true'], resultados[mejor_modelo]['y_pred'], titulo=f"Analisis de Residuos - Mejor modelo \n{mejor_modelo}")
     
     print(f"\nDatos generados: {len(df)} muestras")
     
