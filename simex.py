@@ -179,18 +179,19 @@ class RBMGenerador(nn.Module):
             np.random.seed(semilla)
         
         self.eval()
-        v = torch.bernoulli(torch.ones(n_samples, self.n_visible) * 0.5).to(self.device)
+        with torch.no_grad():
+            v = torch.bernoulli(torch.ones(n_samples, self.n_visible) * 0.5).to(self.device)
         
-        for step in range(n_steps):
-            _, v, _ = self.gibbs_step(v)
-            if step < n_steps * 0.3:
-                noise = torch.randn_like(v) * 0.05 * (1 - step / (n_steps * 0.3))
-                v = torch.clamp(v + noise, 0, 1)
-        
-        if return_probs:
-            return v.cpu().numpy()
-        else:
-            return torch.bernoulli(v).cpu().numpy()
+            for step in range(n_steps):
+                _, v, _ = self.gibbs_step(v)
+                if step < n_steps * 0.3:
+                    noise = torch.randn_like(v) * 0.05 * (1 - step / (n_steps * 0.3))
+                    v = torch.clamp(v + noise, 0, 1)
+            
+            if return_probs:
+                return v.cpu().numpy()
+            else:
+                return torch.bernoulli(v).cpu().numpy()
     
     def extraer_caracteristicas(self, v):
         '''
@@ -410,8 +411,8 @@ class EntrenamientoVisualizador:
         # Evolución pérdida
         ax = self.axes[0]
         if len(self.historial['train_loss']) > 0:
-            ax.plot(self.historial['epoch'], self.historial['train_loss'], label='Train Loss', color="#8d36c7", linewidth=2)
-            ax.plot(self.historial['epoch'], self.historial['test_loss'], label='Test Loss', color="#c951af", linewidth=2)
+            ax.plot(self.historial['epoch'], self.historial['train_loss'], label='Train Loss', color="#8d36c7", linestyle='--', linewidth=2)
+            ax.plot(self.historial['epoch'], self.historial['test_loss'], label='Test Loss', color="#df7cc9", linewidth=2)
             ax.set_xlabel('Epoca')
             ax.set_ylabel('MSE Loss')
             ax.set_title('Evolucion de la Perdida')
@@ -423,7 +424,7 @@ class EntrenamientoVisualizador:
         ax = self.axes[1]
         if len(self.historial.get('train_r2', [])) > 0:
             ax.plot(self.historial['epoch'], self.historial['train_r2'], label='Train R2', color="#3681c7", linestyle='--', linewidth=2)
-            ax.plot(self.historial['epoch'], self.historial['test_r2'], label='Test R2', color="#cc8347", linewidth=2)
+            ax.plot(self.historial['epoch'], self.historial['test_r2'], label='Test R2', color="#e9944f", linewidth=2)
             ax.set_xlabel('Epoca')
             ax.set_ylabel('R2')
             ax.set_title('Evolucion de la Precisión')
@@ -513,7 +514,7 @@ class GeocronologiaNet(nn.Module):
         return self.network(x)
 
 # Entrenamiento
-def entrenar_red(modelo, X_train, y_train, X_test, y_test, epochs=500, batch_size=128, lr=0.0005, patience=30, device=device, nombre_modelo="Red Neuronal", scaler_y=None):
+def entrenar_red(modelo, X_train, y_train, X_test, y_test, epochs=500, batch_size=128, lr=0.0005, patience=60, device=device, nombre_modelo="Red Neuronal", scaler_y=None):
     '''
     Entrenamiento de la red neuronal con visualización actualizada.
     modelo: Red neuronal a entrenar.
@@ -625,8 +626,17 @@ def cargar_datos_excel(ruta_excel):
             print(f"  Archivo no encontrado: {ruta_excel}")
             return None
         
-        df_zircon = pd.read_excel(ruta_excel, sheet_name='Table S3')
+        df_zircon = pd.read_excel(
+            ruta_excel, 
+            sheet_name='Table S3',
+            header=1,
+            thousands=None,
+            decimal=','
+        )
+        
         print(f"  Datos cargados: {len(df_zircon)} muestras de zircon")
+        print(f"  Columnas encontradas: {len(df_zircon.columns)}")
+        
         return df_zircon
     except Exception as e:
         print(f"  Error al cargar Excel: {e}")
@@ -873,31 +883,16 @@ def evaluar_modelo_con_cv(modelo, X_train, y_train, X_test, y_test, scaler_y=Non
         'y_pred': y_pred_test
     }
 
-# Gráficas de funciones
-def graficar_resultados_completos(resultados, resultados_cv=None, titulo="Comparacion de Modelos", modo="completo"):
+# Graficas de funciones
+def graficar_comparativa(resultados, titulo="Comparacion de Modelos", mostrar_cv=True):
     """
-    Grafica resultados de modelos con opcion de mostrar CV o solo test.
-    
-    Args:
-        resultados (dict): Diccionario con resultados 'test' y 'cv' de cada modelo.
-        resultados_cv (dict, optional): Diccionario separado con resultados de CV.
-        titulo (str): Titulo de la figura.
-        modo (str): 'completo' (Test + CV) o 'cv' (solo CV).
+    Grafica comparativa de modelos. Si mostrar_cv=True, muestra Test + CV.
+    Si mostrar_cv=False, muestra solo Test.
     """
-    # Determinar que resultados usar
-    if resultados_cv is not None:
-        modelos_con_cv = list(resultados_cv.keys())
-        modelos_test = list(resultados.keys())
-        modelos = list(set(modelos_con_cv) & set(modelos_test))
-        if not modelos:
-            modelos = modelos_test
-    else:
-        modelos = list(resultados.keys())
-    
     # Filtrar modelos con datos validos
     modelos_validos = []
-    for m in modelos:
-        if m in resultados and isinstance(resultados[m], dict) and 'test' in resultados[m]:
+    for m in resultados.keys():
+        if isinstance(resultados[m], dict) and 'test' in resultados[m]:
             if resultados[m]['test']['r2'] is not None:
                 modelos_validos.append(m)
     
@@ -905,7 +900,23 @@ def graficar_resultados_completos(resultados, resultados_cv=None, titulo="Compar
         print("  No hay modelos validos para graficar.")
         return
     
-    modelos = modelos_validos
+    # Si mostrar_cv=True, filtrar solo modelos con CV valido
+    if mostrar_cv:
+        modelos_con_cv = []
+        for m in modelos_validos:
+            if m in resultados and resultados[m]['cv'] is not None:
+                cv_data = resultados[m]['cv']
+                if cv_data.get('r2_mean') is not None:
+                    modelos_con_cv.append(m)
+        
+        if modelos_con_cv:
+            modelos = modelos_con_cv
+        else:
+            print("  No hay modelos con CV valido. Mostrando solo Test.")
+            mostrar_cv = False
+            modelos = modelos_validos
+    else:
+        modelos = modelos_validos
     
     # Preparar datos
     r2_test = [resultados[m]['test']['r2'] for m in modelos]
@@ -931,25 +942,29 @@ def graficar_resultados_completos(resultados, resultados_cv=None, titulo="Compar
                 mape_cv.append(cv_data.get('mape_mean', 0))
                 tiene_cv = True
             else:
-                r2_cv.append(None)
+                r2_cv.append(0)
                 r2_cv_std.append(0)
-                rmse_cv.append(None)
+                rmse_cv.append(0)
                 rmse_cv_std.append(0)
-                mape_cv.append(None)
+                mape_cv.append(0)
         else:
-            r2_cv.append(None)
+            r2_cv.append(0)
             r2_cv_std.append(0)
-            rmse_cv.append(None)
+            rmse_cv.append(0)
             rmse_cv_std.append(0)
-            mape_cv.append(None)
+            mape_cv.append(0)
+    
+    # Si no hay CV real, mostrar solo Test
+    if not tiene_cv and mostrar_cv:
+        mostrar_cv = False
     
     # Determinar numero de graficas
-    if modo == "cv" or (modo == "completo" and not tiene_cv):
-        n_plots = 2
-        titulo_plot = f"{titulo} - Solo Test" if not tiene_cv else f"{titulo} - Resultados CV"
-    else:
+    if mostrar_cv and tiene_cv:
         n_plots = 3
         titulo_plot = titulo
+    else:
+        n_plots = 2
+        titulo_plot = f"{titulo} - Solo Test"
     
     fig, axes = plt.subplots(1, n_plots, figsize=(6*n_plots, 5))
     if n_plots == 1:
@@ -963,15 +978,12 @@ def graficar_resultados_completos(resultados, resultados_cv=None, titulo="Compar
     
     # Grafica 1: R²
     ax = axes[idx]
-    if tiene_cv and modo != "cv":
+    if mostrar_cv and tiene_cv:
         ax.bar(x - width/2, r2_test, width, label='Test', color='steelblue')
         ax.bar(x + width/2, r2_cv, width, label='CV', color='orange', 
                yerr=r2_cv_std, capsize=3)
     else:
-        if modo == "cv" and tiene_cv:
-            ax.bar(x, r2_cv, width, color='orange', yerr=r2_cv_std, capsize=3, label='CV')
-        else:
-            ax.bar(x, r2_test, width, color='steelblue', label='Test')
+        ax.bar(x, r2_test, width, color='steelblue', label='Test')
     
     ax.set_xlabel('Modelo')
     ax.set_ylabel('R²')
@@ -986,15 +998,12 @@ def graficar_resultados_completos(resultados, resultados_cv=None, titulo="Compar
     
     # Grafica 2: RMSE
     ax = axes[idx]
-    if tiene_cv and modo != "cv":
+    if mostrar_cv and tiene_cv:
         ax.bar(x - width/2, rmse_test, width, label='Test', color='steelblue')
         ax.bar(x + width/2, rmse_cv, width, label='CV', color='orange',
                yerr=rmse_cv_std, capsize=3)
     else:
-        if modo == "cv" and tiene_cv:
-            ax.bar(x, rmse_cv, width, color='orange', yerr=rmse_cv_std, capsize=3, label='CV')
-        else:
-            ax.bar(x, rmse_test, width, color='steelblue', label='Test')
+        ax.bar(x, rmse_test, width, color='steelblue', label='Test')
     
     ax.set_xlabel('Modelo')
     ax.set_ylabel('RMSE (Ma)')
@@ -1005,8 +1014,8 @@ def graficar_resultados_completos(resultados, resultados_cv=None, titulo="Compar
     ax.set_xticklabels(modelos, rotation=45, ha='right')
     idx += 1
     
-    # Grafica 3: MAPE (solo si hay CV y modo completo)
-    if tiene_cv and modo != "cv" and n_plots == 3:
+    # Grafica 3: MAPE (solo si hay CV y mostrar_cv=True)
+    if mostrar_cv and tiene_cv and n_plots == 3:
         ax = axes[idx]
         ax.bar(x - width/2, mape_test, width, label='Test', color='steelblue')
         ax.bar(x + width/2, mape_cv, width, label='CV', color='orange')
@@ -1020,7 +1029,7 @@ def graficar_resultados_completos(resultados, resultados_cv=None, titulo="Compar
     
     plt.tight_layout()
     plt.show()
-    
+
 def graficar_analisis_completo(y_true, y_pred, titulo="Analisis de Prediccion"):
     """
     Análisas de predicciones de dispersión, distribución, error relativo y erro por rango de edad.
@@ -1041,7 +1050,7 @@ def graficar_analisis_completo(y_true, y_pred, titulo="Analisis de Prediccion"):
     fig.suptitle(titulo, fontsize=14, fontweight='bold')
     
     ax = axes[0, 0]
-    ax.scatter(y_true, y_pred, alpha=0.4, s=8, c='steelblue')
+    ax.scatter(y_true, y_pred, alpha=0.4, s=8, c="#3681c7")
     ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], 
             'r--', lw=2, label='Perfecta')
     ax.set_xlabel("Edad Real (Ma)")
@@ -1051,9 +1060,9 @@ def graficar_analisis_completo(y_true, y_pred, titulo="Analisis de Prediccion"):
     ax.grid(True, alpha=0.3)
     
     ax = axes[0, 1]
-    ax.hist(errores, bins=40, alpha=0.7, color='steelblue', edgecolor='black')
+    ax.hist(errores, bins=40, alpha=0.7, color="#3681c7", edgecolor='black')
     ax.axvline(x=0, color='red', linestyle='--', label='Error cero')
-    ax.axvline(x=np.mean(errores), color='orange', linestyle='--', 
+    ax.axvline(x=np.mean(errores), color="#e9944f", linestyle='--', 
                label=f'Media: {np.mean(errores):.1f}')
     ax.axvline(x=np.median(errores), color='green', linestyle='--', 
                label=f'Mediana: {np.median(errores):.1f}')
@@ -1066,7 +1075,7 @@ def graficar_analisis_completo(y_true, y_pred, titulo="Analisis de Prediccion"):
     ax = axes[1, 0]
     ax.scatter(y_true, errores_rel, alpha=0.4, s=8, c='coral')
     ax.axhline(y=10, color='red', linestyle='--', alpha=0.7, label='10%')
-    ax.axhline(y=20, color='orange', linestyle='--', alpha=0.7, label='20%')
+    ax.axhline(y=20, color="#e9944f", linestyle='--', alpha=0.7, label='20%')
     ax.set_xlabel("Edad Real (Ma)")
     ax.set_ylabel("Error Relativo (%)")
     ax.set_title("Error Relativo vs Edad")
@@ -1093,7 +1102,7 @@ def graficar_analisis_completo(y_true, y_pred, titulo="Analisis de Prediccion"):
     
     x_pos = np.arange(len(etiquetas))
     width = 0.35
-    ax.bar(x_pos - width/2, rmse_por_rango, width, label='RMSE (Ma)', color='steelblue')
+    ax.bar(x_pos - width/2, rmse_por_rango, width, label='RMSE (Ma)', color="#3681c7")
     ax2 = ax.twinx()
     ax2.bar(x_pos + width/2, mape_por_rango, width, label='MAPE (%)', color='coral', alpha=0.7)
     
@@ -1111,27 +1120,8 @@ def graficar_analisis_completo(y_true, y_pred, titulo="Analisis de Prediccion"):
     
     plt.tight_layout()
     plt.show()
-    
-def graficar_cv_comparativa(resultados_cv, titulo="Cross Validation por Modelo"):
-    """
-    Grafica los resultados de CV para cada modelo.
-    """
-    resultados_formateados = {}
-    for modelo, cv_data in resultados_cv.items():
-        if cv_data is not None and cv_data.get('r2_mean') is not None:
-            resultados_formateados[modelo] = {
-                'test': {'r2': cv_data['r2_mean'], 'rmse': cv_data['rmse_mean'], 'mape': cv_data.get('mape_mean', 0)},
-                'cv': cv_data
-            }
-    
-    if not resultados_formateados:
-        print("  No hay resultados de CV para graficar.")
-        return
-    
-    graficar_resultados_completos(resultados_formateados, titulo=titulo, modo="cv")
 
 # Menú
-
 def main():
     print("Geocronología")
     print("Analisis de datos isotopicos con Machine Learning")
@@ -1424,14 +1414,10 @@ def main():
             
             print("\n  Entrenando Red Neuronal")
             modelo_nn = GeocronologiaNet(input_dim=X_train.shape[1], hidden_dims=[256, 128, 64, 32])
-            modelo_nn, historial = entrenar_red( modelo_nn, X_train, y_train.reshape(-1, 1),X_test, y_test.reshape(-1, 1), epochs=500, batch_size=128, lr=0.0005, patience=30, device=device, nombre_modelo="Red Neuronal + RBM", scaler_y=scaler_y )
+            modelo_nn, historial = entrenar_red( modelo_nn, X_train, y_train.reshape(-1, 1),X_test, y_test.reshape(-1, 1), epochs=500, batch_size=128, lr=0.0005, patience=60, device=device, nombre_modelo="Red Neuronal + RBM", scaler_y=scaler_y )
             
             with torch.no_grad():
                 y_pred_nn = modelo_nn(torch.tensor(X_test, dtype=torch.float32).to(device)).cpu().numpy()
-            y_true_nn = scaler_y.inverse_transform(y_test.reshape(-1, 1))
-            y_pred_nn = scaler_y.inverse_transform(y_pred_nn)
-            
-            y_pred_nn = modelo_nn(torch.tensor(X_test, dtype=torch.float32).to(device)).cpu().numpy()
             y_true_nn = scaler_y.inverse_transform(y_test.reshape(-1, 1))
             y_pred_nn = scaler_y.inverse_transform(y_pred_nn)
             
@@ -1449,10 +1435,10 @@ def main():
             
             print("\n Generando graficas finales")
             
-            graficar_resultados_completos(resultados, titulo="Comparacion de Modelos - Datos Reales + RBM")
-            graficar_cv_comparativa(resultados_cv, titulo="Cross Validation - Datos Reales + RBM")
+            graficar_comparativa(resultados, titulo="Comparacion de Modelos - Datos Reales + RBM", mostrar_cv=True)
+            graficar_comparativa(resultados, titulo="Cross Validation - Datos Reales + RBM", mostrar_cv=False)
             
-            mejor_modelo = max(resultados, key=lambda x: x[1]['test']['r2'] if x[1]['test']['r2'] is not None else -999)
+            mejor_modelo = max(resultados, key=lambda x: resultados[x]['test']['r2'] if resultados[x]['test']['r2'] is not None else -999)
             print(f"\nMejor modelo: {mejor_modelo}")
             print(f"  R2 Test: {resultados[mejor_modelo]['test']['r2']:.4f}")
             print(f"  RMSE Test: {resultados[mejor_modelo]['test']['rmse']:.2f} Ma")
@@ -1479,7 +1465,6 @@ def main():
             return resultados
     
    # Opción 2
-
     print("Opción 2: Datos sintéticos")
     
     print("\n Generando datos sinteticos")
@@ -1560,7 +1545,7 @@ def main():
     modelo_nn, historial = entrenar_red(
         modelo_nn, X_train, y_train.reshape(-1, 1),
         X_test, y_test.reshape(-1, 1),
-        epochs=500, batch_size=128, lr=0.0005, patience=30,
+        epochs=500, batch_size=128, lr=0.0005, patience=60,
         device=device, nombre_modelo="Red Neuronal (Sinteticos)", scaler_y=scaler_y
     )
     
@@ -1584,10 +1569,10 @@ def main():
     
     print("\nGenerando graficas finales")
     
-    graficar_resultados_completos(resultados, titulo="Comparacion de Modelos - Datos Sinteticos")
-    graficar_cv_comparativa(resultados_cv, titulo="Cross Validation - Datos Sinteticos")
+    graficar_comparativa(resultados, titulo="Comparacion de Modelos - Datos Sinteticos", mostrar_cv=True)
+    graficar_comparativa(resultados, titulo="Cross Validation - Datos Sinteticos", mostrar_cv=False)
     
-    mejor_modelo = max(resultados, key=lambda x: x[1]['test']['r2'] if x[1]['test']['r2'] is not None else -999)
+    mejor_modelo = max(resultados, key=lambda x: resultados[x]['test']['r2'] if resultados[x]['test']['r2'] is not None else -999)
     print(f"\nMejor modelo: {mejor_modelo}")
     print(f"  R2 Test: {resultados[mejor_modelo]['test']['r2']:.4f}")
     print(f"  RMSE Test: {resultados[mejor_modelo]['test']['rmse']:.2f} Ma")
